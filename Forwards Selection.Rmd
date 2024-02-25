@@ -1,0 +1,118 @@
+---
+title: "Forward Selection by AUC"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Forwards Selection by Hand
+
+### Problem Set Up
+
+```{r}
+load("winequality-red.RData")
+RNGkind(sample.kind="Rejection")
+# MODIFY the line below: use the last two digits of you access ID, e.g., gn0061 gives 61
+set.seed(59)  # <-- MODIFY this number
+# DO NOT MODIFY the next four lines
+wine$quality <- ifelse(wine$quality >= 6, 1, 0)  # 1 means good quality, 0 means bad quality
+trainset <- sample(1:nrow(wine), 80)  # DO NOT CHANGE: you must sample 80 data points for training
+validset <- setdiff(1:nrow(wine), trainset)  # The remaining is used for validation
+source("ROC_func.R")  # source in the ROC_func.R (presumably located in your current directory)
+```
+
+
+```{r}
+library(pROC)
+
+for(v in varpool){
+    
+    sm = glm(as.formula(paste0('quality ~ ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 3), "\n"))
+  
+}
+# alcohol was king. .751
+
+
+varpool2 = colnames(wine)[1:10]
+
+
+for(v in varpool2 ){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 3), "\n"))
+  
+}
+#volatile. acidity .788
+
+selectvec= c(-2,-11,-12)
+varpool3 = colnames(wine)[selectvec]
+
+for(v in varpool3 ){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + volatile.acidity + ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 8), "\n"))
+  
+}
+
+# total.sulfur.dioxide: 0.79270286
+
+selectvec2= c(-2,-11,-12, -7)
+varpool4 = colnames(wine)[selectvec2]
+
+for(v in varpool4){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + volatile.acidity +  total.sulfur.dioxide +  ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 8), "\n"))
+  
+}
+
+#sulphates: sulphates: 0.79876406
+
+selectvec3= c(-2,-11,-12, -7, -10)
+varpool5 = colnames(wine)[selectvec3]
+
+for(v in varpool5){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + volatile.acidity +  total.sulfur.dioxide + sulphates +   ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 8), "\n"))
+  
+}
+
+#chlorides: 0.80664067
+
+selectvec4= c(-2,-11,-12, -7, -10,-5)
+varpool6 = colnames(wine)[selectvec4]
+
+for(v in varpool6){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + volatile.acidity +  total.sulfur.dioxide + sulphates + chlorides +  ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 8), "\n"))
+  
+}
+
+# pH: 0.80704661
+
+selectvec5= c(-2,-11,-12, -7, -10,-5, -9 )
+varpool7 = colnames(wine)[selectvec5]
+
+for(v in varpool7){
+    
+    sm = glm(as.formula(paste0('quality ~ alcohol + volatile.acidity +  total.sulfur.dioxide + sulphates + chlorides + pH +   ',v)),data = wine, subset = trainset, family = binomial)
+    pred1 = predict(sm, newdata = wine[validset,], type = 'response')
+    cat(paste0(v, ": ", format(auc( wine[validset,]$quality, pred1), digits = 8), "\n"))
+  
+}
+
+# ALL RESULTING AUC'S are worse. 
+
+
+```
