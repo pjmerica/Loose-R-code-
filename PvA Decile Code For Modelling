@@ -1,0 +1,60 @@
+# Load required packages
+library(dplyr)
+library(openxlsx)
+
+# Example data
+set.seed(123)
+df <- data.frame(
+  actual = rnorm(1000, mean = 50, sd = 10),
+  model_A = rnorm(1000, mean = 50, sd = 10),
+  model_B = rnorm(1000, mean = 50, sd = 10),
+  model_C = rnorm(1000, mean = 50, sd = 10)
+)
+
+# Function to compute decile summary
+compute_deciles_summary <- function(data, actual_col, predicted_col) {
+  data %>%
+    mutate(
+      decile = ntile(!!sym(predicted_col), 10)
+    ) %>%
+    group_by(decile) %>%
+    summarise(
+      avg_actual = mean(!!sym(actual_col), na.rm = TRUE),
+      avg_predicted = mean(!!sym(predicted_col), na.rm = TRUE),
+      count = n(),
+      .groups = 'drop'
+    ) %>%
+    arrange(decile)
+}
+
+# Create a new workbook
+wb <- createWorkbook()
+
+# Add one sheet
+addWorksheet(wb, "Decile Summaries")
+
+# Initialize starting row
+row_pointer <- 1
+
+# Loop over each predicted column (excluding 'actual')
+actual_col <- "actual"
+predicted_cols <- setdiff(colnames(df), actual_col)
+
+for (pred_col in predicted_cols) {
+  
+  # Compute summary
+  summary_df <- compute_deciles_summary(df, actual_col, pred_col)
+  
+  # Write model name as a header
+  writeData(wb, sheet = 1, x = paste("Model:", pred_col), startRow = row_pointer, startCol = 1)
+  row_pointer <- row_pointer + 1
+  
+  # Write the summary table
+  writeDataTable(wb, sheet = 1, x = summary_df, startRow = row_pointer, startCol = 1)
+  
+  # Move pointer down for next table (add buffer space)
+  row_pointer <- row_pointer + nrow(summary_df) + 3
+}
+
+# Save workbook
+saveWorkbook(wb, "predicted_vs_actual_deciles_named.xlsx", overwrite = TRUE)
