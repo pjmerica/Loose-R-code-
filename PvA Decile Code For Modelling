@@ -62,3 +62,43 @@ for (feature in feature_cols) {
 
 # ---- Save the workbook to Excel ----
 saveWorkbook(wb, "decile_summaries_by_feature_with_range.xlsx", overwrite = TRUE)
+
+
+
+
+---- For Deciles of predictions
+
+
+
+# Load necessary libraries
+library(dplyr)
+library(writexl)
+
+# Sample data - replace with your actual data
+# Suppose you have a data frame with columns: predicted and actual
+set.seed(123)
+data <- data.frame(
+  predicted = runif(1000, 0, 1),  # model predictions
+  actual = runif(1000, 0, 1)      # actual losses
+)
+
+# Step 1: Create deciles based on predicted values
+data <- data %>%
+  mutate(decile = ntile(predicted, 10))
+
+# Step 2: Calculate loss rate and MAPE per decile
+decile_summary <- data %>%
+  group_by(decile) %>%
+  summarise(
+    avg_predicted = mean(predicted),
+    avg_actual = mean(actual),
+    loss_rate = sum(actual) / n(),
+    MAPE = mean(abs((actual - predicted) / ifelse(actual == 0, NA, actual)), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Step 3: Export to Excel
+write_xlsx(decile_summary, "decile_analysis.xlsx")
+
+# Print the output
+print(decile_summary)
