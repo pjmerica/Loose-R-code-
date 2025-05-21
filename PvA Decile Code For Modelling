@@ -60,3 +60,73 @@ for (feature in feature_cols) {
 
 # Save workbook
 openxlsx::saveWorkbook(wb, "decile_summaries_by_feature.xlsx", overwrite = TRUE)
+
+
+
+
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# Load required libraries
+library(dplyr)
+library(openxlsx)
+library(rlang)
+
+# ---- Your actual dataset ----
+df <- data.frame(
+  speed_score = c(123, 123, 4423),
+  googlers = c("tim", "tom", "tam"),   # Non-numeric column
+  funnumbers = c(12, 21, 3),
+  Bad_units = c(1, 0, 1),
+  Preds = c(0.03, 0.02, 0.01)
+)
+
+# ---- Function to compute decile summary ----
+compute_feature_deciles <- function(data, feature_col, pred_col = "Preds", bad_col = "Bad_units") {
+  # Convert column names to symbols
+  feature_sym <- sym(feature_col)
+  pred_sym <- sym(pred_col)
+  bad_sym <- sym(bad_col)
+  
+  data %>%
+    mutate(decile = ntile(!!feature_sym, 10)) %>%
+    group_by(decile) %>%
+    summarise(
+      avg_preds = mean(!!pred_sym, na.rm = TRUE),
+      bad_rate = sum(!!bad_sym, na.rm = TRUE) / n(),
+      count = n(),
+      .groups = "drop"
+    ) %>%
+    arrange(decile)
+}
+
+# ---- Create a new workbook ----
+wb <- createWorkbook()
+addWorksheet(wb, "Decile Summaries")
+
+# ---- Select numeric features (excluding Preds and Bad_units) ----
+feature_cols <- df %>%
+  select(where(is.numeric)) %>%
+  select(-Preds, -Bad_units) %>%
+  colnames()
+
+# ---- Write decile summaries ----
+row_pointer <- 1
+
+for (feature in feature_cols) {
+  summary_df <- compute_feature_deciles(df, feature)
+  
+  # Write feature name
+  writeData(wb, sheet = 1, x = paste("Feature:", feature), startRow = row_pointer, startCol = 1)
+  row_pointer <- row_pointer + 1
+  
+  # Write summary table
+  writeDataTable(wb, sheet = 1, x = summary_df, startRow = row_pointer, startCol = 1)
+  
+  # Move pointer down for next block
+  row_pointer <- row_pointer + nrow(summary_df) + 3
+}
+
+# ---- Save the workbook to Excel ----
+saveWorkbook(wb, "decile_summaries_by_feature.xlsx", overwrite = TRUE)
