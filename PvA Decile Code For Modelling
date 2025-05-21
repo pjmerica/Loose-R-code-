@@ -1,58 +1,62 @@
-# Load required packages
+# Load libraries
 library(dplyr)
 library(openxlsx)
+library(rlang)  # for sym()
 
-# ---- Sample Data ----
+# Example data (match your structure)
 set.seed(42)
 df <- data.frame(
-  feature1 = rnorm(1000, 50, 10),
-  feature2 = rnorm(1000, 30, 5),
-  feature3 = runif(1000, 0, 1),
-  preds = runif(1000, 0, 1),
-  bads = rbinom(1000, 1, 0.2)  # 20% bad rate
+  Score = rnorm(1000, 50, 10),
+  quality = runif(1000),
+  category = sample(LETTERS[1:5], 1000, replace = TRUE),
+  Bad_unit = rbinom(1000, 1, 0.2),
+  preds = runif(1000)
 )
 
-# ---- Function to compute decile summary for one feature ----
-compute_feature_deciles <- function(data, feature_col, pred_col = "preds", bad_col = "bads") {
+# Function to compute deciles and summaries
+compute_feature_deciles <- function(data, feature_col, pred_col = "preds", bad_col = "Bad_unit") {
+  # Ensure we're working with strings
+  feature_sym <- rlang::sym(feature_col)
+  pred_sym <- rlang::sym(pred_col)
+  bad_sym <- rlang::sym(bad_col)
+  
   data %>%
-    mutate(decile = ntile(!!sym(feature_col), 10)) %>%
-    group_by(decile) %>%
-    summarise(
-      avg_preds = mean(!!sym(pred_col), na.rm = TRUE),
-      total_bads = sum(!!sym(bad_col), na.rm = TRUE),
-      count = n(),
-      bad_rate = total_bads / count,
+    dplyr::mutate(decile = dplyr::ntile(!!feature_sym, 10)) %>%
+    dplyr::group_by(decile) %>%
+    dplyr::summarise(
+      avg_preds = mean(!!pred_sym, na.rm = TRUE),
+      bad_rate = sum(!!bad_sym, na.rm = TRUE) / dplyr::n(),
+      count = dplyr::n(),
       .groups = "drop"
     ) %>%
-    select(decile, avg_preds, bad_rate, count) %>%
-    arrange(decile)
+    dplyr::arrange(decile)
 }
 
-# ---- Create Workbook ----
-wb <- createWorkbook()
-addWorksheet(wb, "Decile Summaries")
+# Create workbook
+wb <- openxlsx::createWorkbook()
+openxlsx::addWorksheet(wb, "Decile Summaries")
 
-# ---- Loop through all feature columns ----
-# Exclude 'preds' and 'bads' from features
-feature_cols <- setdiff(colnames(df), c("preds", "bads"))
+# Select numeric features only, excluding 'preds' and 'Bad_unit'
+feature_cols <- df %>%
+  dplyr::select(where(is.numeric)) %>%
+  dplyr::select(-preds, -Bad_unit) %>%
+  colnames()
 
-row_pointer <- 1  # Start row for Excel
+row_pointer <- 1
 
+# Loop through each numeric feature
 for (feature in feature_cols) {
-  
-  # Compute summary
   summary_df <- compute_feature_deciles(df, feature)
   
   # Write feature name
-  writeData(wb, sheet = 1, x = paste("Feature:", feature), startRow = row_pointer, startCol = 1)
+  openxlsx::writeData(wb, sheet = 1, x = paste("Feature:", feature), startRow = row_pointer, startCol = 1)
   row_pointer <- row_pointer + 1
   
   # Write summary table
-  writeDataTable(wb, sheet = 1, x = summary_df, startRow = row_pointer, startCol = 1)
+  openxlsx::writeDataTable(wb, sheet = 1, x = summary_df, startRow = row_pointer, startCol = 1)
   
-  # Move pointer down for next table (add space)
   row_pointer <- row_pointer + nrow(summary_df) + 3
 }
 
-# ---- Save Workbook ----
-saveWorkbook(wb, "decile_summaries_by_feature.xlsx", overwrite = TRUE)
+# Save workbook
+openxlsx::saveWorkbook(wb, "decile_summaries_by_feature.xlsx", overwrite = TRUE)
